@@ -5,26 +5,38 @@ const puppeteer = require('puppeteer-extra');
 const StealthPlugin = require('puppeteer-extra-plugin-stealth');
 
 puppeteer.use(StealthPlugin());
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// ✅ Сигнал Railway, що сервер "живий"
+app.get('/', (_, res) => res.send('✅ Парсер готовий. Використай /run для запуску'));
+
+// 🧠 Основний ендпоінт запуску парсера
 app.get('/run', async (req, res) => {
   console.log('🚀 Парсинг стартував...');
   const url = process.env.TARGET_URL;
 
-  if (!url) return res.status(400).send('❌ TARGET_URL не задано у .env');
+  if (!url) {
+    console.warn('❌ TARGET_URL не задано');
+    return res.status(400).json({ error: 'TARGET_URL не задано у .env' });
+  }
+
+  let browser;
 
   try {
-    const browser = await puppeteer.launch({
+    browser = await puppeteer.launch({
       headless: 'new',
-      args: ['--no-sandbox', '--disable-setuid-sandbox']
+      args: ['--no-sandbox', '--disable-setuid-sandbox'],
+      timeout: 60_000,
     });
 
     const page = await browser.newPage();
     await page.setUserAgent(
       'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
     );
-    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
+
+    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60_000 });
 
     const data = await page.evaluate(() => {
       const result = {
@@ -76,16 +88,18 @@ app.get('/run', async (req, res) => {
     });
 
     fs.writeFileSync('result.json', JSON.stringify(data, null, 2));
-    await browser.close();
     console.log('✅ Дані збережено');
+    res.status(200).json(data);
 
-    res.status(200).send(data);
   } catch (err) {
-    console.error('💥 Помилка:', err.message || err);
-    res.status(500).send('❌ Парсинг не вдалось виконати');
+    console.error('💥 Помилка під час парсингу:', err.message || err);
+    res.status(500).json({ error: '❌ Не вдалося завершити парсинг', details: err.message });
+  } finally {
+    if (browser) await browser.close();
   }
 });
 
-app.get('/', (_, res) => res.send('✅ Парсер готовий. Запусти /run'));
-
-app.listen(PORT, () => console.log(`🌐 Сервер на порту ${PORT}`));
+// ✅ Старт сервера
+app.listen(PORT, () => {
+  console.log(`🌐 Сервер працює на порту ${PORT}`);
+});
