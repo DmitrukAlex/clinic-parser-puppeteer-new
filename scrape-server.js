@@ -35,12 +35,17 @@ if (!url) {
       'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
     );
 
-    await page.goto(url, { waitUntil: 'networkidle0', timeout: 60_000 });
-    await page.waitForSelector('body', { timeout: 10_000 });
-    await page.waitForTimeout(3000); // буфер
+   // Переходимо на сторінку
+await page.goto(url, { waitUntil: 'networkidle0', timeout: 60_000 });
 
+// Очікуємо наявність <body>
+await page.waitForSelector('body', { timeout: 10_000 });
 
-    const data = await page.evaluate(() => {
+// ⏳ Буфер 3 сек перед парсингом
+await new Promise(resolve => setTimeout(resolve, 3000));
+
+// 🧠 Запуск парсингу
+const data = await page.evaluate(() => {
       const result = {
         prices: [],
         procedures: [],
