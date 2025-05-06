@@ -1,17 +1,18 @@
 require('dotenv').config();
+const express = require('express');
 const fs = require('fs');
 const puppeteer = require('puppeteer-extra');
 const StealthPlugin = require('puppeteer-extra-plugin-stealth');
+
 puppeteer.use(StealthPlugin());
+const app = express();
+const PORT = process.env.PORT || 3000;
 
-(async () => {
-  console.log('🚀 Запуск Puppeteer...');
-
+app.get('/run', async (req, res) => {
+  console.log('🚀 Парсинг стартував...');
   const url = process.env.TARGET_URL;
-  if (!url) {
-    console.error('❌ Помилка: TARGET_URL не задано у .env файлі');
-    process.exit(1);
-  }
+
+  if (!url) return res.status(400).send('❌ TARGET_URL не задано у .env');
 
   try {
     const browser = await puppeteer.launch({
@@ -23,11 +24,8 @@ puppeteer.use(StealthPlugin());
     await page.setUserAgent(
       'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
     );
-
-    console.log('🌐 Відкриваємо сайт:', url);
     await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
 
-    console.log('📥 Сайт завантажено, парсимо...');
     const data = await page.evaluate(() => {
       const result = {
         prices: [],
@@ -42,7 +40,6 @@ puppeteer.use(StealthPlugin());
       const regexPrice = /\d{2,5}\s?(грн|₴)/gi;
       const regexPhone = /(?:\+38)?0\d{9}/g;
       const regexEmail = /[\w.-]+@[\w.-]+\.\w+/g;
-
       const allElements = document.querySelectorAll('body *');
 
       allElements.forEach(el => {
@@ -67,7 +64,6 @@ puppeteer.use(StealthPlugin());
       });
 
       const unique = arr => Array.from(new Set(arr.map(item => item.trim())));
-
       return {
         prices: unique(result.prices),
         procedures: unique(result.procedures),
@@ -79,17 +75,17 @@ puppeteer.use(StealthPlugin());
       };
     });
 
-    console.log('✅ Готово, ось результат:\n', JSON.stringify(data, null, 2));
-
-    // Можна ще зберегти в файл (тільки для debug):
     fs.writeFileSync('result.json', JSON.stringify(data, null, 2));
-
     await browser.close();
-    process.exit(0); // ← Щоб Railway не зависав
-  } catch (err) {
-    console.error('💥 Критична помилка:', err.message || err);
-    process.exit(1);
-setInterval(() => {}, 1 << 30);
+    console.log('✅ Дані збережено');
 
+    res.status(200).send(data);
+  } catch (err) {
+    console.error('💥 Помилка:', err.message || err);
+    res.status(500).send('❌ Парсинг не вдалось виконати');
   }
-})();
+});
+
+app.get('/', (_, res) => res.send('✅ Парсер готовий. Запусти /run'));
+
+app.listen(PORT, () => console.log(`🌐 Сервер на порту ${PORT}`));
