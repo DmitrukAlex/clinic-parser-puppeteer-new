@@ -1,4 +1,5 @@
 require('dotenv').config();
+const fs = require('fs');
 const puppeteer = require('puppeteer-extra');
 const StealthPlugin = require('puppeteer-extra-plugin-stealth');
 puppeteer.use(StealthPlugin());
@@ -77,8 +78,9 @@ puppeteer.use(StealthPlugin());
       };
     });
 
-    console.log('✅ Результат:');
-    console.log(JSON.stringify(data, null, 2));
+    fs.writeFileSync('result.json', JSON.stringify(data, null, 2));
+    console.log('✅ Результат збережено у result.json');
+
     await browser.close();
   } catch (err) {
     console.error('💥 Критична помилка:', err.message || err);
