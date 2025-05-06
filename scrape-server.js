@@ -35,7 +35,10 @@ if (!url) {
       'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
     );
 
-    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60_000 });
+    await page.goto(url, { waitUntil: 'networkidle0', timeout: 60_000 });
+    await page.waitForSelector('body', { timeout: 10_000 });
+    await page.waitForTimeout(3000); // буфер
+
 
     const data = await page.evaluate(() => {
       const result = {
