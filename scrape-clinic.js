@@ -27,6 +27,7 @@ puppeteer.use(StealthPlugin());
     console.log('🌐 Відкриваємо сайт:', url);
     await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
 
+    console.log('📥 Сайт завантажено, парсимо...');
     const data = await page.evaluate(() => {
       const result = {
         prices: [],
@@ -78,10 +79,13 @@ puppeteer.use(StealthPlugin());
       };
     });
 
+    console.log('✅ Готово, ось результат:\n', JSON.stringify(data, null, 2));
+
+    // Можна ще зберегти в файл (тільки для debug):
     fs.writeFileSync('result.json', JSON.stringify(data, null, 2));
-    console.log('✅ Результат збережено у result.json');
 
     await browser.close();
+    process.exit(0); // ← Щоб Railway не зависав
   } catch (err) {
     console.error('💥 Критична помилка:', err.message || err);
     process.exit(1);
