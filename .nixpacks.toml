@@ -1,0 +1,12 @@
+# 📦 Фаза установки залежностей
+[phases.setup]
+nixPkgs = [
+  "nodejs_18",          # Node.js
+  "gtk3", "libx11", "libxcb", "libxcomposite", "libxdamage", "libxext", "libxfixes",
+  "libnss", "libasound", "libatk", "libatk-bridge2", "libcups", "libdrm", "libgbm",
+  "libpangocairo", "fonts", "bash"
+]
+
+# 🚀 Команда запуску (залежно від того, який у тебе файл)
+[start]
+cmd = "node scrape-clinic.js"
