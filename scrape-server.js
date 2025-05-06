@@ -106,3 +106,7 @@ if (!url) {
 app.listen(PORT, () => {
   console.log(`🌐 Сервер працює на порту ${PORT}`);
 });
+
+git add .
+git commit -m "fix: added wait for dynamic content"
+git push origin main
