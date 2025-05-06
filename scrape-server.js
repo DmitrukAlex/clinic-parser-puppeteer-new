@@ -15,12 +15,11 @@ app.get('/', (_, res) => res.send('✅ Парсер готовий. Викори
 // 🧠 Основний ендпоінт запуску парсера
 app.get('/run', async (req, res) => {
   console.log('🚀 Парсинг стартував...');
-  const url = process.env.TARGET_URL;
+  const url = req.query.url;
 
-  if (!url) {
-    console.warn('❌ TARGET_URL не задано');
-    return res.status(400).json({ error: 'TARGET_URL не задано у .env' });
-  }
+if (!url) {
+  return res.status(400).json({ error: '❌ Не передано параметр `url`' });
+}
 
   let browser;
 
