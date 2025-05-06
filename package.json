@@ -2,6 +2,7 @@
   "name": "clinic-parser",
   "version": "1.0.0",
   "description": "Парсер клінік для аналізу цін, контактів, соцмереж та послуг",
+  "type": "module",
   "main": "scrape-clinic.js",
   "scripts": {
     "start": "node scrape-clinic.js"
@@ -15,7 +16,7 @@
   "engines": {
     "node": ">=18.0.0"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC"
+  "keywords": ["puppeteer", "parser", "clinic", "cosmetology"],
+  "author": "DmitrukAlex",
+  "license": "MIT"
 }
