@@ -1,15 +1,21 @@
 {
-  "name": "clinic-scraper",
+  "name": "clinic-parser",
   "version": "1.0.0",
-  "description": "Puppeteer скрипт для парсингу даних з сайтів клінік",
+  "description": "Парсер клінік для аналізу цін, контактів, соцмереж та послуг",
   "main": "scrape-clinic.js",
   "scripts": {
     "start": "node scrape-clinic.js"
   },
   "dependencies": {
-    "dotenv": "^16.5.0",
-    "puppeteer": "^21.3.8",
+    "dotenv": "^16.3.1",
+    "puppeteer": "^21.11.0",
     "puppeteer-extra": "^3.3.6",
     "puppeteer-extra-plugin-stealth": "^2.11.2"
-  }
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
 }
