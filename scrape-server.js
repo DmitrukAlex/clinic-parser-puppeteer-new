@@ -57,7 +57,7 @@ if (!url) {
       const allElements = document.querySelectorAll('body *');
 
       allElements.forEach(el => {
-        const text = el.innerText?.trim();
+        const text = el.innerText?.trim() || el.textContent?.trim() || el.innerHTML?.trim();
         const href = el.getAttribute('href') || '';
 
         if (text) {
