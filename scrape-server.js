@@ -35,6 +35,15 @@ if (!url) {
       'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
     );
 
+const axios = require('axios');
+try {
+  const testResponse = await axios.get(url, { timeout: 10000 });
+  console.log('🌐 Тестовий HTTP-запит пройшов');
+} catch (err) {
+  console.warn('❌ Неможливо дістатись до сайту через axios:', err.message);
+  return res.status(400).json({ error: 'Сайт недоступний з Railway', details: err.message });
+}
+
    // Переходимо на сторінку
 await page.goto(url, { waitUntil: 'networkidle0', timeout: 60_000 });
 
