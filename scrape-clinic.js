@@ -89,5 +89,7 @@ puppeteer.use(StealthPlugin());
   } catch (err) {
     console.error('💥 Критична помилка:', err.message || err);
     process.exit(1);
+setInterval(() => {}, 1 << 30);
+
   }
 })();
