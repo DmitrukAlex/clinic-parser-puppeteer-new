@@ -1,23 +1,244 @@
-{
-  "name": "clinic-parser",
-  "version": "1.0.0",
-  "description": "Парсер клінік",
-  "main": "scrape-server.js",
-  "scripts": {
-    "start": "node scrape-server.js",
-    "dev": "nodemon scrape-server.js"
-  },
-  "dependencies": {
-    "dotenv": "^16.3.1",
-    "express": "^4.18.2",
-    "puppeteer": "^22.8.2",
-    "puppeteer-extra": "^3.3.6",
-    "puppeteer-extra-plugin-stealth": "^2.11.2"
-  },
-  "devDependencies": {
-    "nodemon": "^3.0.2"
-  },
-  "engines": {
-    "node": ">=18.0.0"
+const express = require('express');
+const puppeteer = require('puppeteer-extra');
+const StealthPlugin = require('puppeteer-extra-plugin-stealth');
+require('dotenv').config();
+
+// Додаємо stealth plugin для обходу детекції
+puppeteer.use(StealthPlugin());
+
+const app = express();
+
+// Middleware
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+
+// CORS для n8n
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+  
+  if (req.method === 'OPTIONS') {
+    res.sendStatus(200);
+  } else {
+    next();
   }
-}
+});
+
+// Health check для Railway
+app.get('/', (req, res) => {
+  res.json({ 
+    status: 'Clinic Parser API Running',
+    version: '1.0.0',
+    timestamp: new Date().toISOString(),
+    endpoints: ['/scrape', '/health']
+  });
+});
+
+app.get('/health', (req, res) => {
+  res.json({ 
+    status: 'OK', 
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime()
+  });
+});
+
+// Основний ендпоінт для n8n
+app.post('/scrape', async (req, res) => {
+  console.log('📥 Scrape request:', req.body);
+  
+  try {
+    const { url, options = {} } = req.body;
+    
+    if (!url) {
+      return res.status(400).json({ 
+        error: 'URL is required',
+        success: false 
+      });
+    }
+
+    // Валідація URL
+    let targetUrl;
+    try {
+      targetUrl = new URL(url);
+    } catch (urlError) {
+      return res.status(400).json({ 
+        error: 'Invalid URL format',
+        success: false 
+      });
+    }
+
+    console.log(`🚀 Starting scrape for: ${url}`);
+
+    // Puppeteer конфігурація для Railway
+    const browser = await puppeteer.launch({
+      headless: true,
+      args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+        '--disable-gpu',
+        '--disable-web-security',
+        '--disable-extensions',
+        '--no-first-run',
+        '--disable-default-apps',
+        '--disable-background-timer-throttling',
+        '--disable-backgrounding-occluded-windows',
+        '--disable-renderer-backgrounding'
+      ],
+      executablePath: process.env.PUPPETEER_EXECUTABLE_PATH
+    });
+
+    const page = await browser.newPage();
+
+    // Налаштування viewport та user agent
+    await page.setViewport({ width: 1366, height: 768 });
+    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
+
+    // Додаткові налаштування
+    await page.setExtraHTTPHeaders({
+      'Accept-Language': 'uk-UA,uk;q=0.9,en;q=0.8,ru;q=0.7'
+    });
+
+    // Навігація на сайт з таймаутом
+    await page.goto(url, { 
+      waitUntil: 'networkidle2',
+      timeout: options.timeout || 30000 
+    });
+
+    // Чекаємо завантаження контенту
+    await page.waitForTimeout(2000);
+
+    // Витягуємо контент
+    const pageData = await page.evaluate(() => {
+      // Видаляємо скрипти та стилі для очищення
+      const scripts = document.querySelectorAll('script, style, noscript');
+      scripts.forEach(el => el.remove());
+
+      return {
+        title: document.title || '',
+        url: window.location.href,
+        html: document.documentElement.outerHTML,
+        text: document.body ? document.body.innerText : '',
+        meta: {
+          description: document.querySelector('meta[name="description"]')?.content || '',
+          keywords: document.querySelector('meta[name="keywords"]')?.content || '',
+          og_title: document.querySelector('meta[property="og:title"]')?.content || '',
+          og_description: document.querySelector('meta[property="og:description"]')?.content || ''
+        }
+      };
+    });
+
+    await browser.close();
+
+    console.log(`✅ Successfully scraped: ${url}`);
+
+    // Відповідь у форматі, який очікує n8n
+    res.json({
+      body: pageData.html,
+      title: pageData.title,
+      text: pageData.text,
+      meta: pageData.meta,
+      url: pageData.url,
+      success: true,
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('❌ Scraping error:', error);
+    
+    res.status(500).json({ 
+      error: error.message,
+      success: false,
+      timestamp: new Date().toISOString(),
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
+  }
+});
+
+// Додатковий ендпоінт для batch scraping
+app.post('/scrape-batch', async (req, res) => {
+  try {
+    const { urls, options = {} } = req.body;
+    
+    if (!Array.isArray(urls) || urls.length === 0) {
+      return res.status(400).json({ 
+        error: 'URLs array is required',
+        success: false 
+      });
+    }
+
+    const results = [];
+    const browser = await puppeteer.launch({
+      headless: true,
+      args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+        '--disable-gpu'
+      ]
+    });
+
+    for (const url of urls.slice(0, 10)) { // Лімітуємо до 10 URLs
+      try {
+        const page = await browser.newPage();
+        await page.goto(url, { waitUntil: 'networkidle2', timeout: 15000 });
+        const content = await page.content();
+        await page.close();
+        
+        results.push({
+          url,
+          body: content,
+          success: true
+        });
+      } catch (error) {
+        results.push({
+          url,
+          error: error.message,
+          success: false
+        });
+      }
+    }
+
+    await browser.close();
+
+    res.json({
+      results,
+      total: results.length,
+      success: true
+    });
+
+  } catch (error) {
+    console.error('Batch scraping error:', error);
+    res.status(500).json({ 
+      error: error.message,
+      success: false 
+    });
+  }
+});
+
+// Error handling middleware
+app.use((error, req, res, next) => {
+  console.error('Server error:', error);
+  res.status(500).json({
+    error: 'Internal server error',
+    success: false
+  });
+});
+
+// 404 handler
+app.use('*', (req, res) => {
+  res.status(404).json({
+    error: 'Endpoint not found',
+    success: false,
+    availableEndpoints: ['/scrape', '/scrape-batch', '/health']
+  });
+});
+
+const PORT = process.env.PORT || 3000;
+
+app.listen(PORT, () => {
+  console.log(`🚀 Clinic Parser Server running on port ${PORT}`);
+  console.log(`📡 Health check: http://localhost:${PORT}/health`);
+  console.log(`🔍 Scrape endpoint: http://localhost:${PORT}/scrape`);
+});
